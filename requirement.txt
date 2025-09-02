@@ -1,2 +1,9 @@
-flask-sqlalchemy
-flask-migrate
+flask==2.3.3
+flask-sqlalchemy==3.0.5
+flask-migrate==4.0.5
+flask-cors==4.0.0
+flask-jwt-extended==4.5.2
+flask-caching==2.1.0
+flask-mail==0.9.1
+redis==4.6.0
+python-dotenv==1.0.0
