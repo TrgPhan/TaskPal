@@ -1,13 +1,11 @@
 from datetime import datetime
-from flask_sqlalchemy import SQLAlchemy
 import uuid
-
-db = SQLAlchemy()
+from app.extensions.database import db
 
 class Block(db.Model):
     __tablename__ = 'blocks'
     
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     
     # Content and type
     type = db.Column(db.Enum(
@@ -27,8 +25,8 @@ class Block(db.Model):
     plain_text = db.Column(db.Text, nullable=True, index=True)  # Plain text for search
     
     # Hierarchy and positioning
-    page_id = db.Column(db.String(36), db.ForeignKey('pages.id'), nullable=False, index=True)
-    parent_id = db.Column(db.String(36), db.ForeignKey('blocks.id'), nullable=True, index=True)  # For nested blocks
+    page_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('pages.id'), nullable=False, index=True)
+    parent_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('blocks.id'), nullable=True, index=True)  # For nested blocks
     order_index = db.Column(db.Integer, default=0, nullable=False, index=True)  # Order within parent
     depth = db.Column(db.Integer, default=0, nullable=False, index=True)  # Nesting depth
     
@@ -39,10 +37,10 @@ class Block(db.Model):
     is_expanded = db.Column(db.Boolean, default=True, nullable=False)  # Current expanded state
     
     # Audit fields
-    created_by = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False, index=True)
+    created_by = db.Column(db.UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False, index=True)
-    last_edited_by = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=True)
+    last_edited_by = db.Column(db.UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=True)
     last_edited_at = db.Column(db.DateTime, nullable=True)
     
     # Version control
@@ -142,13 +140,13 @@ class BlockHistory(db.Model):
     """Track block changes for version history"""
     __tablename__ = 'block_history'
     
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    block_id = db.Column(db.String(36), db.ForeignKey('blocks.id'), nullable=False, index=True)
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    block_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('blocks.id'), nullable=False, index=True)
     version = db.Column(db.Integer, nullable=False)
     content_snapshot = db.Column(db.JSON, nullable=False)  # Complete block content at this version
     change_type = db.Column(db.Enum('created', 'updated', 'deleted', 'moved', name='block_change_type'), 
                            nullable=False)
-    changed_by = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
+    changed_by = db.Column(db.UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
     changed_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
     
     # Relationships

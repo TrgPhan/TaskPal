@@ -1,13 +1,11 @@
 from datetime import datetime
-from flask_sqlalchemy import SQLAlchemy
 import uuid
-
-db = SQLAlchemy()
+from app.extensions.database import db
 
 class Database(db.Model):
     __tablename__ = 'databases'
     
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     
     # Basic info
     title = db.Column(db.String(500), nullable=False)
@@ -16,15 +14,15 @@ class Database(db.Model):
     cover_image = db.Column(db.Text, nullable=True)
     
     # Location
-    workspace_id = db.Column(db.String(36), db.ForeignKey('workspaces.id'), nullable=False, index=True)
-    page_id = db.Column(db.String(36), db.ForeignKey('pages.id'), nullable=True, index=True)  # If database is on a page
+    workspace_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('workspaces.id'), nullable=False, index=True)
+    page_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('pages.id'), nullable=True, index=True)  # If database is on a page
     
     # Configuration
     is_inline = db.Column(db.Boolean, default=False, nullable=False)  # Inline vs full-page database
     view_config = db.Column(db.JSON, default=dict)  # Default view settings
     
     # Audit fields
-    created_by = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False, index=True)
+    created_by = db.Column(db.UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     
@@ -61,8 +59,8 @@ class Database(db.Model):
 class DatabaseProperty(db.Model):
     __tablename__ = 'database_properties'
     
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    database_id = db.Column(db.String(36), db.ForeignKey('databases.id'), nullable=False, index=True)
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    database_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('databases.id'), nullable=False, index=True)
     
     # Property definition
     name = db.Column(db.String(255), nullable=False)
@@ -107,16 +105,16 @@ class DatabaseProperty(db.Model):
 class DatabaseRow(db.Model):
     __tablename__ = 'database_rows'
     
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    database_id = db.Column(db.String(36), db.ForeignKey('databases.id'), nullable=False, index=True)
-    page_id = db.Column(db.String(36), db.ForeignKey('pages.id'), nullable=False, index=True)  # Each row is a page
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    database_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('databases.id'), nullable=False, index=True)
+    page_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('pages.id'), nullable=False, index=True)  # Each row is a page
     
     # Row metadata
     order_index = db.Column(db.Integer, default=0, nullable=False)
     is_archived = db.Column(db.Boolean, default=False, nullable=False, index=True)
     
     # Audit
-    created_by = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
+    created_by = db.Column(db.UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     
@@ -146,9 +144,9 @@ class DatabaseRow(db.Model):
 class DatabasePropertyValue(db.Model):
     __tablename__ = 'database_property_values'
     
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    row_id = db.Column(db.String(36), db.ForeignKey('database_rows.id'), nullable=False, index=True)
-    property_id = db.Column(db.String(36), db.ForeignKey('database_properties.id'), nullable=False, index=True)
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    row_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('database_rows.id'), nullable=False, index=True)
+    property_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('database_properties.id'), nullable=False, index=True)
     
     # Value storage - different columns for different types
     text_value = db.Column(db.Text, nullable=True, index=True)
@@ -198,8 +196,8 @@ class DatabasePropertyValue(db.Model):
 class DatabaseView(db.Model):
     __tablename__ = 'database_views'
     
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    database_id = db.Column(db.String(36), db.ForeignKey('databases.id'), nullable=False, index=True)
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    database_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('databases.id'), nullable=False, index=True)
     
     # View definition
     name = db.Column(db.String(255), nullable=False)
@@ -218,7 +216,7 @@ class DatabaseView(db.Model):
     
     # Access
     is_default = db.Column(db.Boolean, default=False, nullable=False)
-    created_by = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
+    created_by = db.Column(db.UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     

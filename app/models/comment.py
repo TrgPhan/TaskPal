@@ -1,33 +1,31 @@
 from datetime import datetime
-from flask_sqlalchemy import SQLAlchemy
 import uuid
-
-db = SQLAlchemy()
+from app.extensions.database import db
 
 class Comment(db.Model):
     __tablename__ = 'comments'
     
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     
     # Content
     content = db.Column(db.JSON, nullable=False)  # Rich text content
     plain_text = db.Column(db.Text, nullable=True, index=True)  # Plain text for search
     
     # Target - can be on page or specific block
-    page_id = db.Column(db.String(36), db.ForeignKey('pages.id'), nullable=True, index=True)
-    block_id = db.Column(db.String(36), db.ForeignKey('blocks.id'), nullable=True, index=True)
+    page_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('pages.id'), nullable=True, index=True)
+    block_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('blocks.id'), nullable=True, index=True)
     
     # Threading
-    parent_id = db.Column(db.String(36), db.ForeignKey('comments.id'), nullable=True, index=True)
-    thread_id = db.Column(db.String(36), nullable=False, index=True)  # Top-level comment ID for grouping
+    parent_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('comments.id'), nullable=True, index=True)
+    thread_id = db.Column(db.UUID(as_uuid=True), nullable=False, index=True)  # Top-level comment ID for grouping
     
     # Status
     is_resolved = db.Column(db.Boolean, default=False, nullable=False, index=True)
-    resolved_by = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=True)
+    resolved_by = db.Column(db.UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=True)
     resolved_at = db.Column(db.DateTime, nullable=True)
     
     # Audit fields
-    author_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False, index=True)
+    author_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     last_edited_at = db.Column(db.DateTime, nullable=True)
@@ -87,9 +85,9 @@ class Comment(db.Model):
 class CommentReaction(db.Model):
     __tablename__ = 'comment_reactions'
     
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    comment_id = db.Column(db.String(36), db.ForeignKey('comments.id'), nullable=False, index=True)
-    user_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False, index=True)
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    comment_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('comments.id'), nullable=False, index=True)
+    user_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False, index=True)
     emoji = db.Column(db.String(10), nullable=False)  # Unicode emoji
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     
@@ -114,9 +112,9 @@ class CommentReaction(db.Model):
 class CommentMention(db.Model):
     __tablename__ = 'comment_mentions'
     
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    comment_id = db.Column(db.String(36), db.ForeignKey('comments.id'), nullable=False, index=True)
-    mentioned_user_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False, index=True)
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    comment_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('comments.id'), nullable=False, index=True)
+    mentioned_user_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False, index=True)
     mention_text = db.Column(db.String(255), nullable=False)  # The text that was mentioned (e.g., "@username")
     is_read = db.Column(db.Boolean, default=False, nullable=False, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)

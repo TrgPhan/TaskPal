@@ -1,0 +1,9 @@
+# TaskPal Environment Variables
+# Copy these to your .env file
+
+FLASK_ENV=development
+FLASK_HOST=0.0.0.0
+FLASK_PORT=8000
+SECRET_KEY=taskpal-super-secret-key-change-in-production-2024
+JWT_SECRET_KEY=taskpal-jwt-secret-key-change-in-production-2024
+DATABASE_URL=postgresql://taskpal_user:taskpal_password@localhost:5432/taskpal_db

@@ -1,14 +1,12 @@
 from datetime import datetime
-from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 import uuid
-
-db = SQLAlchemy()
+from app.extensions.database import db
 
 class User(db.Model):
     __tablename__ = 'users'
     
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = db.Column(db.String(255), unique=True, nullable=False, index=True)
     username = db.Column(db.String(100), unique=True, nullable=False, index=True)
     full_name = db.Column(db.String(255), nullable=False)
@@ -20,14 +18,17 @@ class User(db.Model):
     language = db.Column(db.String(10), default='en')
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-    last_active = db.Column(db.DateTime, default=datetime.utcnow)
+    last_active = db.Column(db.DateTime, nullable=True)
     
     # Relationships
-    workspaces = db.relationship('Workspace', secondary='workspace_members', back_populates='members')
+    workspaces = db.relationship('Workspace', secondary='workspace_members', 
+                                primaryjoin='User.id == WorkspaceMember.user_id',
+                                secondaryjoin='Workspace.id == WorkspaceMember.workspace_id',
+                                back_populates='members')
     owned_workspaces = db.relationship('Workspace', foreign_keys='Workspace.owner_id', back_populates='owner')
-    pages = db.relationship('Page', back_populates='created_by_user')
-    blocks = db.relationship('Block', back_populates='created_by_user')
-    comments = db.relationship('Comment', back_populates='author')
+    pages = db.relationship('Page', foreign_keys='Page.created_by', back_populates='created_by_user')
+    blocks = db.relationship('Block', foreign_keys='Block.created_by', back_populates='created_by_user')
+    comments = db.relationship('Comment', foreign_keys='Comment.author_id', back_populates='author')
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -37,7 +38,7 @@ class User(db.Model):
     
     def to_dict(self):
         return {
-            'id': self.id,
+            'id': str(self.id) if self.id else None,
             'email': self.email,
             'username': self.username,
             'full_name': self.full_name,
@@ -46,7 +47,7 @@ class User(db.Model):
             'is_verified': self.is_verified,
             'timezone': self.timezone,
             'language': self.language,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'last_active': self.last_active.isoformat() if self.last_active else None
         }

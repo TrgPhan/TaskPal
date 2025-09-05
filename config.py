@@ -13,7 +13,8 @@ class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     
     # Database settings
-    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'sqlite:///taskpal.db')
+    # Default to PostgreSQL, fallback to SQLite for development
+    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'postgresql://taskpal_user:taskpal_password@localhost:5432/taskpal_db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # JWT settings
@@ -67,7 +68,7 @@ class ProductionConfig(Config):
 class TestingConfig(Config):
     """Testing configuration"""
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    SQLALCHEMY_DATABASE_URI = os.getenv('TEST_DATABASE_URL', 'postgresql://taskpal_user:taskpal_password@localhost:5432/taskpal_test_db')
     WTF_CSRF_ENABLED = False
 
 # Configuration mapping

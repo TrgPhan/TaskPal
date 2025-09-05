@@ -1,28 +1,26 @@
 from datetime import datetime
-from flask_sqlalchemy import SQLAlchemy
 import uuid
-
-db = SQLAlchemy()
+from app.extensions.database import db
 
 class Page(db.Model):
     __tablename__ = 'pages'
     
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title = db.Column(db.String(500), nullable=False, default='Untitled')
     icon = db.Column(db.Text, nullable=True)  # Emoji or URL
     cover_image = db.Column(db.Text, nullable=True)
     slug = db.Column(db.String(255), nullable=True, index=True)  # URL-friendly version of title
     
     # Hierarchy and organization
-    workspace_id = db.Column(db.String(36), db.ForeignKey('workspaces.id'), nullable=False, index=True)
-    parent_id = db.Column(db.String(36), db.ForeignKey('pages.id'), nullable=True, index=True)  # Self-referential for nested pages
+    workspace_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('workspaces.id'), nullable=False, index=True)
+    parent_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('pages.id'), nullable=True, index=True)  # Self-referential for nested pages
     path = db.Column(db.Text, nullable=True, index=True)  # Materialized path for quick tree queries (e.g., "/parent/child/grandchild")
     level = db.Column(db.Integer, default=0, nullable=False, index=True)  # Depth level in hierarchy
     order_index = db.Column(db.Integer, default=0, nullable=False, index=True)  # Order among siblings
     
     # Content and metadata
     content_text = db.Column(db.Text, nullable=True)  # Plain text version for search
-    template_id = db.Column(db.String(36), db.ForeignKey('page_templates.id'), nullable=True)
+    template_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('page_templates.id'), nullable=True)
     properties = db.Column(db.JSON, default=dict)  # Custom properties (like Notion database properties)
     
     # Access and permissions
@@ -32,10 +30,10 @@ class Page(db.Model):
     is_archived = db.Column(db.Boolean, default=False, nullable=False, index=True)
     
     # Audit fields
-    created_by = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False, index=True)
+    created_by = db.Column(db.UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False, index=True)
-    last_edited_by = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=True)
+    last_edited_by = db.Column(db.UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=True)
     last_edited_at = db.Column(db.DateTime, nullable=True)
     
     # Version control
@@ -116,14 +114,14 @@ class Page(db.Model):
 class PageTemplate(db.Model):
     __tablename__ = 'page_templates'
     
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text, nullable=True)
     icon = db.Column(db.Text, nullable=True)
     template_data = db.Column(db.JSON, nullable=False)  # Store the template structure
     category = db.Column(db.String(100), nullable=True)
     is_public = db.Column(db.Boolean, default=False, nullable=False)
-    created_by = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
+    created_by = db.Column(db.UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     
     def to_dict(self):
@@ -142,13 +140,13 @@ class PageTemplate(db.Model):
 class PagePermission(db.Model):
     __tablename__ = 'page_permissions'
     
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    page_id = db.Column(db.String(36), db.ForeignKey('pages.id'), nullable=False, index=True)
-    user_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=True, index=True)
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    page_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('pages.id'), nullable=False, index=True)
+    user_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=True, index=True)
     role = db.Column(db.String(50), nullable=True)  # For role-based permissions
     permission_type = db.Column(db.Enum('read', 'write', 'comment', 'full_access', name='page_permission_type'), 
                                nullable=False)
-    granted_by = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
+    granted_by = db.Column(db.UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
     granted_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     
     # Relationships
