@@ -4,6 +4,7 @@ from app.extensions.database import db
 from app.models.user import User
 from app.models.workspace import Workspace, WorkspaceMember
 from app.utils.responses import success_response, error_response
+from app.services import get_pubsub_service
 from datetime import datetime
 import uuid
 
@@ -50,7 +51,14 @@ def create_workspace():
         
         db.session.add(owner_member)
         db.session.commit()
-        
+
+        # Publish workspace creation event
+        pubsub_service = get_pubsub_service()
+        pubsub_service.publish_workspace_update(workspace.id, {
+            'action': 'created',
+            'workspace': workspace.to_dict()
+        })
+
         return success_response({
             'message': 'Workspace created successfully',
             'workspace': workspace.to_dict()
@@ -170,7 +178,14 @@ def update_workspace(workspace_id):
         
         workspace.updated_at = datetime.utcnow()
         db.session.commit()
-        
+
+        # Publish workspace update event
+        pubsub_service = get_pubsub_service()
+        pubsub_service.publish_workspace_update(workspace_id, {
+            'action': 'updated',
+            'workspace': workspace.to_dict()
+        })
+
         return success_response({
             'message': 'Workspace updated successfully',
             'workspace': workspace.to_dict()
@@ -452,7 +467,15 @@ def join_workspace(invite_code):
         
         db.session.add(new_member)
         db.session.commit()
-        
+
+        # Publish member joined event
+        pubsub_service = get_pubsub_service()
+        pubsub_service.publish_workspace_update(workspace.id, {
+            'action': 'member_joined',
+            'user_id': str(current_user_id),
+            'user': user.to_dict()
+        })
+
         return success_response({
             'message': 'Successfully joined workspace',
             'workspace': workspace.to_dict()

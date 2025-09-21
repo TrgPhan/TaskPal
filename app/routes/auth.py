@@ -45,7 +45,7 @@ def register():
             username=data['username'].lower().strip(),
             full_name=data['full_name'].strip(),
             timezone=data.get('timezone', 'UTC'),
-            language=data.get('language', 'en')
+            language=data.get('language', 'vi')
         )
         user.set_password(data['password'])
         
@@ -112,6 +112,7 @@ def logout():
         
     except Exception as e:
         return error_response('Logout failed', 500)
+    # It's seem a little bit useless but it's for symmetry
 
 @auth.route('/refresh', methods=['POST'])
 @jwt_required()

@@ -7,6 +7,8 @@ from .jwt import jwt_manager
 from .cache import cache
 from .mail import mail
 
+# PubSub is not imported here to avoid circular dependencies
+
 # Import initialization functions
 from .database import init_db
 from .migrate import init_migrate
@@ -14,6 +16,7 @@ from .cors import init_cors
 from .jwt import init_jwt
 from .cache import init_cache
 from .mail import init_mail
+from .pubsub import init_pubsub
 
 # List of extensions with their init functions
 EXTENSIONS = [
@@ -23,6 +26,7 @@ EXTENSIONS = [
     (jwt_manager, init_jwt),
     (cache, init_cache),
     (mail, init_mail),
+    (None, init_pubsub),  # PubSub doesn't have a class instance like other extensions
 ]
 
 def init_app(app):

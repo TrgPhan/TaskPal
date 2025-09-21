@@ -31,13 +31,15 @@ def create_app(config_name=None):
     from app.routes.page import page_bp
     from app.routes.block import block_bp
     from app.routes.comment import comment_bp
-    
+    from app.routes.pubsub import pubsub_bp
+
     app.register_blueprint(user_bp, url_prefix='/api/user')
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(workspace_bp, url_prefix='/api/workspace')
     app.register_blueprint(page_bp, url_prefix='/api/page')
     app.register_blueprint(block_bp, url_prefix='/api/block')
     app.register_blueprint(comment_bp, url_prefix='/api/comment')
+    app.register_blueprint(pubsub_bp, url_prefix='/api/pubsub')
     
     # Add error handlers
     @app.errorhandler(404)
