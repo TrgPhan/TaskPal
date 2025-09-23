@@ -32,11 +32,7 @@ EXTENSIONS = [
 def init_app(app):
     """Initialize all extensions with the Flask app"""
     for extension, init_func in EXTENSIONS:
-        try:
-            init_func(app)
-            print(f"✅ Initialized {extension.__class__.__name__}")
-        except Exception as e:
-            print(f"❌ Failed to initialize {extension.__class__.__name__}: {e}")
+        init_func(app)
 
 # Export all extensions for easy import
 __all__ = ['db', 'migrate', 'cors', 'jwt_manager', 'cache', 'mail', 'init_app']

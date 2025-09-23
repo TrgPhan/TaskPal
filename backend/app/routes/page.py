@@ -5,6 +5,7 @@ from app.models.user import User
 from app.models.workspace import Workspace, WorkspaceMember
 from app.models.page import Page, PageTemplate, PagePermission
 from app.utils.responses import success_response, error_response
+from app.services.cache_service import CacheService
 from datetime import datetime
 import uuid
 import re
@@ -95,6 +96,27 @@ def create_page():
         db.session.add(permission)
         db.session.commit()
         
+        # Invalidate workspace pages cache for all workspace members
+        members = WorkspaceMember.query.filter_by(workspace_id=workspace_id, is_active=True).all()
+        for member in members:
+            # Invalidate pages cache with different parameter combinations
+            cache_patterns = [
+                f"workspace_pages:{workspace_id}:{member.user_id}:root:False:False",
+                f"workspace_pages:{workspace_id}:{member.user_id}:root:True:False", 
+                f"workspace_pages:{workspace_id}:{member.user_id}:root:False:True",
+                f"workspace_pages:{workspace_id}:{member.user_id}:root:True:True"
+            ]
+            if parent_id:
+                cache_patterns.extend([
+                    f"workspace_pages:{workspace_id}:{member.user_id}:{parent_id}:False:False",
+                    f"workspace_pages:{workspace_id}:{member.user_id}:{parent_id}:True:False",
+                    f"workspace_pages:{workspace_id}:{member.user_id}:{parent_id}:False:True", 
+                    f"workspace_pages:{workspace_id}:{member.user_id}:{parent_id}:True:True"
+                ])
+            
+            for cache_key in cache_patterns:
+                CacheService.delete_cached(cache_key)
+        
         return success_response({
             'message': 'Page created successfully',
             'page': page.to_dict()
@@ -107,7 +129,7 @@ def create_page():
 @page_bp.route('/', methods=['GET'])
 @jwt_required()
 def get_pages():
-    """Get pages for a workspace"""
+    """Get pages for a workspace with caching"""
     try:
         current_user_id = get_jwt_identity()
         workspace_id = request.args.get('workspace_id')
@@ -124,6 +146,15 @@ def get_pages():
         parent_id = request.args.get('parent_id')
         include_archived = request.args.get('include_archived', 'false').lower() == 'true'
         include_deleted = request.args.get('include_deleted', 'false').lower() == 'true'
+        
+        # Create cache key based on parameters
+        cache_key = f"workspace_pages:{workspace_id}:{current_user_id}:{parent_id or 'root'}:{include_archived}:{include_deleted}"
+        cached_pages = CacheService.get_cached(cache_key)
+        
+        if cached_pages:
+            return success_response({
+                'pages': cached_pages
+            })
         
         # Build query
         query = Page.query.filter_by(workspace_id=workspace_id)
@@ -157,6 +188,9 @@ def get_pages():
             if has_permission:
                 pages_data.append(page.to_dict())
         
+        # Cache pages list for 5 minutes
+        CacheService.set_cached(cache_key, pages_data, 300)
+        
         return success_response({
             'pages': pages_data
         })
@@ -167,9 +201,20 @@ def get_pages():
 @page_bp.route('/<page_id>', methods=['GET'])
 @jwt_required()
 def get_page(page_id):
-    """Get page details"""
+    """Get page details with caching"""
     try:
         current_user_id = get_jwt_identity()
+        
+        include_blocks = request.args.get('include_blocks', 'false').lower() == 'true'
+        
+        # Try to get from cache first
+        cache_key = f"page_detail:{page_id}:{current_user_id}:{include_blocks}"
+        cached_page = CacheService.get_cached(cache_key)
+        
+        if cached_page:
+            return success_response({
+                'page': cached_page
+            })
         
         page = Page.query.get(page_id)
         if not page:
@@ -189,10 +234,13 @@ def get_page(page_id):
         if not has_permission and user_role not in ['owner', 'admin']:
             return error_response('Page not found or access denied', 404)
         
-        include_blocks = request.args.get('include_blocks', 'false').lower() == 'true'
+        page_data = page.to_dict(include_blocks=include_blocks)
+        
+        # Cache page details for 3 minutes
+        CacheService.set_cached(cache_key, page_data, 180)
         
         return success_response({
-            'page': page.to_dict(include_blocks=include_blocks)
+            'page': page_data
         })
         
     except Exception as e:

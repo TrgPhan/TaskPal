@@ -20,15 +20,19 @@ class User(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     last_active = db.Column(db.DateTime, nullable=True)
     
-    # Relationships
+    # Relationships - optimized with lazy loading
     workspaces = db.relationship('Workspace', secondary='workspace_members', 
                                 primaryjoin='User.id == WorkspaceMember.user_id',
                                 secondaryjoin='Workspace.id == WorkspaceMember.workspace_id',
-                                back_populates='members')
-    owned_workspaces = db.relationship('Workspace', foreign_keys='Workspace.owner_id', back_populates='owner')
-    pages = db.relationship('Page', foreign_keys='Page.created_by', back_populates='created_by_user')
-    blocks = db.relationship('Block', foreign_keys='Block.created_by', back_populates='created_by_user')
-    comments = db.relationship('Comment', foreign_keys='Comment.author_id', back_populates='author')
+                                back_populates='members', lazy='select')
+    owned_workspaces = db.relationship('Workspace', foreign_keys='Workspace.owner_id', 
+                                     back_populates='owner', lazy='select')
+    pages = db.relationship('Page', foreign_keys='Page.created_by', 
+                           back_populates='created_by_user', lazy='dynamic')
+    blocks = db.relationship('Block', foreign_keys='Block.created_by', 
+                            back_populates='created_by_user', lazy='dynamic')
+    comments = db.relationship('Comment', foreign_keys='Comment.author_id', 
+                              back_populates='author', lazy='dynamic')
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)

@@ -5,6 +5,7 @@ from app.models.user import User
 from app.models.workspace import Workspace, WorkspaceMember
 from app.utils.responses import success_response, error_response
 from app.services import get_pubsub_service
+from app.services.cache_service import CacheService
 from datetime import datetime
 import uuid
 
@@ -52,6 +53,10 @@ def create_workspace():
         db.session.add(owner_member)
         db.session.commit()
 
+        # Invalidate user workspaces cache
+        user_workspaces_cache_key = f"user_workspaces:{current_user_id}"
+        CacheService.delete_cached(user_workspaces_cache_key)
+
         # Publish workspace creation event
         pubsub_service = get_pubsub_service()
         pubsub_service.publish_workspace_update(workspace.id, {
@@ -71,11 +76,20 @@ def create_workspace():
 @workspace_bp.route('/', methods=['GET'])
 @jwt_required()
 def get_workspaces():
-    """Get user's workspaces"""
+    """Get user's workspaces with caching"""
     try:
         current_user_id = get_jwt_identity()
         
-        # Get workspaces where user is a member
+        # Try to get from cache first
+        cache_key = f"user_workspaces:{current_user_id}"
+        cached_workspaces = CacheService.get_cached(cache_key)
+        
+        if cached_workspaces:
+            return success_response({
+                'workspaces': cached_workspaces
+            })
+        
+        # If not in cache, get from database
         workspaces = db.session.query(Workspace).join(WorkspaceMember).filter(
             WorkspaceMember.user_id == current_user_id,
             WorkspaceMember.is_active == True
@@ -93,6 +107,9 @@ def get_workspaces():
             workspace_info['user_role'] = membership.role if membership else None
             workspace_data.append(workspace_info)
         
+        # Cache workspaces for 10 minutes
+        CacheService.set_cached(cache_key, workspace_data, 600)
+        
         return success_response({
             'workspaces': workspace_data
         })
@@ -103,9 +120,18 @@ def get_workspaces():
 @workspace_bp.route('/<workspace_id>', methods=['GET'])
 @jwt_required()
 def get_workspace(workspace_id):
-    """Get workspace details"""
+    """Get workspace details with caching"""
     try:
         current_user_id = get_jwt_identity()
+        
+        # Try to get from cache first
+        cache_key = f"workspace_detail:{workspace_id}:{current_user_id}"
+        cached_workspace = CacheService.get_cached(cache_key)
+        
+        if cached_workspace:
+            return success_response({
+                'workspace': cached_workspace
+            })
         
         # Check if user has access to workspace
         membership = WorkspaceMember.query.filter_by(
@@ -124,6 +150,9 @@ def get_workspace(workspace_id):
         workspace_data = workspace.to_dict()
         workspace_data['user_role'] = membership.role
         workspace_data['user_permissions'] = membership.permissions
+        
+        # Cache workspace details for 5 minutes
+        CacheService.set_cached(cache_key, workspace_data, 300)
         
         return success_response({
             'workspace': workspace_data
@@ -178,6 +207,17 @@ def update_workspace(workspace_id):
         
         workspace.updated_at = datetime.utcnow()
         db.session.commit()
+
+        # Invalidate workspace caches
+        # Invalidate workspace detail cache for all members
+        members = WorkspaceMember.query.filter_by(workspace_id=workspace_id, is_active=True).all()
+        for member in members:
+            workspace_detail_cache_key = f"workspace_detail:{workspace_id}:{member.user_id}"
+            CacheService.delete_cached(workspace_detail_cache_key)
+            
+            # Also invalidate user workspaces cache
+            user_workspaces_cache_key = f"user_workspaces:{member.user_id}"
+            CacheService.delete_cached(user_workspaces_cache_key)
 
         # Publish workspace update event
         pubsub_service = get_pubsub_service()
@@ -431,6 +471,11 @@ def join_workspace(invite_code):
     try:
         current_user_id = get_jwt_identity()
         
+        # Get current user
+        user = User.query.get(current_user_id)
+        if not user:
+            return error_response('User not found', 404)
+        
         # Find workspace by invite code
         workspace = Workspace.query.filter_by(invite_code=invite_code).first()
         if not workspace:
@@ -467,6 +512,10 @@ def join_workspace(invite_code):
         
         db.session.add(new_member)
         db.session.commit()
+
+        # Invalidate user workspaces cache
+        user_workspaces_cache_key = f"user_workspaces:{current_user_id}"
+        CacheService.delete_cached(user_workspaces_cache_key)
 
         # Publish member joined event
         pubsub_service = get_pubsub_service()

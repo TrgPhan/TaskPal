@@ -48,6 +48,11 @@ class DevelopmentConfig(Config):
     """Development configuration"""
     DEBUG = True
     TESTING = False
+    
+    # Default Redis URL for development
+    REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+    CACHE_TYPE = 'redis'  # Force Redis in development
+    CACHE_DEFAULT_TIMEOUT = 300
 
 class ProductionConfig(Config):
     """Production configuration"""

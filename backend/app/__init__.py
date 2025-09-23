@@ -50,6 +50,11 @@ def create_app(config_name=None):
     app.register_blueprint(comment_bp, url_prefix='/api/comment')
     app.register_blueprint(pubsub_bp, url_prefix='/api/pubsub')
     
+    # Register debug routes only in development
+    if config_name == 'development':
+        from app.routes.debug import debug_bp
+        app.register_blueprint(debug_bp)
+    
     # Add error handlers
     @app.errorhandler(404)
     def not_found(error):

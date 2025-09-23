@@ -39,20 +39,34 @@ class Page(db.Model):
     # Version control
     version = db.Column(db.Integer, default=1, nullable=False)
     
-    # Relationships
-    workspace = db.relationship('Workspace', back_populates='pages')
-    created_by_user = db.relationship('User', foreign_keys=[created_by], back_populates='pages')
-    last_edited_by_user = db.relationship('User', foreign_keys=[last_edited_by])
+    # Relationships - optimized with lazy loading
+    workspace = db.relationship('Workspace', back_populates='pages', lazy='select')
+    created_by_user = db.relationship('User', foreign_keys=[created_by], 
+                                    back_populates='pages', lazy='select')
+    last_edited_by_user = db.relationship('User', foreign_keys=[last_edited_by], lazy='select')
     
     # Hierarchical relationships
-    parent = db.relationship('Page', remote_side=[id], back_populates='children')
-    children = db.relationship('Page', back_populates='parent', cascade='all, delete-orphan')
+    parent = db.relationship('Page', remote_side=[id], back_populates='children', lazy='select')
+    children = db.relationship('Page', back_populates='parent', cascade='all, delete-orphan', 
+                              lazy='select', order_by='Page.order_index')
     
-    # Content relationships
+    # Content relationships - use lazy loading for better performance
     blocks = db.relationship('Block', back_populates='page', cascade='all, delete-orphan', 
-                           order_by='Block.order_index')
-    comments = db.relationship('Comment', back_populates='page', cascade='all, delete-orphan')
-    page_permissions = db.relationship('PagePermission', back_populates='page', cascade='all, delete-orphan')
+                           order_by='Block.order_index', lazy='select')
+    comments = db.relationship('Comment', back_populates='page', cascade='all, delete-orphan', 
+                              lazy='dynamic')
+    page_permissions = db.relationship('PagePermission', back_populates='page', 
+                                     cascade='all, delete-orphan', lazy='select')
+    
+    # Add composite indexes for better query performance
+    __table_args__ = (
+        db.Index('idx_page_workspace_parent', 'workspace_id', 'parent_id'),
+        db.Index('idx_page_workspace_order', 'workspace_id', 'order_index'),
+        db.Index('idx_page_workspace_deleted', 'workspace_id', 'is_deleted'),
+        db.Index('idx_page_workspace_archived', 'workspace_id', 'is_archived'),
+        db.Index('idx_page_created_at', 'created_at'),
+        db.Index('idx_page_updated_at', 'updated_at'),
+    )
     
     def update_path(self):
         """Update materialized path based on parent hierarchy"""

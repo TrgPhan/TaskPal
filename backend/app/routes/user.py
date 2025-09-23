@@ -3,8 +3,9 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.extensions.database import db
 from app.models.user import User
 from app.models.workspace import Workspace, WorkspaceMember
-from app.utils.validators import validate_email, validate_username
+from app.utils.validators import validate_email, validate_username, validate_password
 from app.utils.responses import success_response, error_response
+from app.services.cache_service import CacheService
 from datetime import datetime
 
 user_bp = Blueprint('user', __name__)
@@ -12,11 +13,21 @@ user_bp = Blueprint('user', __name__)
 @user_bp.route('/profile', methods=['GET'])
 @jwt_required()
 def get_profile():
-    """Get current user profile"""
+    """Get current user profile with caching"""
     try:
         current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id)
         
+        # Try to get from cache first
+        cache_key = f"user_profile:{current_user_id}"
+        cached_profile = CacheService.get_cached(cache_key)
+        
+        if cached_profile:
+            return success_response({
+                'profile': cached_profile
+            })
+        
+        # If not in cache, get from database
+        user = User.query.get(current_user_id)
         if not user:
             return error_response('User not found', 404)
         
@@ -29,6 +40,9 @@ def get_profile():
         profile_data = user.to_dict()
         profile_data['workspaces'] = [workspace.to_dict() for workspace in workspaces]
         
+        # Cache the profile data for 15 minutes
+        CacheService.set_cached(cache_key, profile_data, 900)
+        
         return success_response({
             'profile': profile_data
         })
@@ -39,7 +53,7 @@ def get_profile():
 @user_bp.route('/profile', methods=['PUT'])
 @jwt_required()
 def update_profile():
-    """Update user profile"""
+    """Update user profile and invalidate cache"""
     try:
         current_user_id = get_jwt_identity()
         user = User.query.get(current_user_id)
@@ -87,6 +101,14 @@ def update_profile():
         user.updated_at = datetime.utcnow()
         db.session.commit()
         
+        # Invalidate cache after update
+        cache_key = f"user_profile:{current_user_id}"
+        CacheService.delete_cached(cache_key)
+        
+        # Also invalidate user settings cache
+        settings_cache_key = f"user_settings:{current_user_id}"
+        CacheService.delete_cached(settings_cache_key)
+        
         return success_response({
             'message': 'Profile updated successfully',
             'user': user.to_dict()
@@ -99,11 +121,21 @@ def update_profile():
 @user_bp.route('/settings', methods=['GET'])
 @jwt_required()
 def get_settings():
-    """Get user settings"""
+    """Get user settings with caching"""
     try:
         current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id)
         
+        # Try to get from cache first
+        cache_key = f"user_settings:{current_user_id}"
+        cached_settings = CacheService.get_cached(cache_key)
+        
+        if cached_settings:
+            return success_response({
+                'settings': cached_settings
+            })
+        
+        # If not in cache, get from database
+        user = User.query.get(current_user_id)
         if not user:
             return error_response('User not found', 404)
         
@@ -116,6 +148,9 @@ def get_settings():
             'last_active': user.last_active.isoformat() if user.last_active else None
         }
         
+        # Cache settings for 30 minutes
+        CacheService.set_cached(cache_key, settings, 1800)
+        
         return success_response({
             'settings': settings
         })
@@ -126,7 +161,7 @@ def get_settings():
 @user_bp.route('/settings', methods=['PUT'])
 @jwt_required()
 def update_settings():
-    """Update user settings"""
+    """Update user settings and invalidate cache"""
     try:
         current_user_id = get_jwt_identity()
         user = User.query.get(current_user_id)
@@ -145,6 +180,14 @@ def update_settings():
         
         user.updated_at = datetime.utcnow()
         db.session.commit()
+        
+        # Invalidate caches after update
+        settings_cache_key = f"user_settings:{current_user_id}"
+        CacheService.delete_cached(settings_cache_key)
+        
+        # Also invalidate profile cache since it contains user data
+        profile_cache_key = f"user_profile:{current_user_id}"
+        CacheService.delete_cached(profile_cache_key)
         
         return success_response({
             'message': 'Settings updated successfully',
@@ -188,6 +231,12 @@ def change_password():
         user.updated_at = datetime.utcnow()
         db.session.commit()
         
+        # Invalidate all user caches after password change
+        profile_cache_key = f"user_profile:{current_user_id}"
+        settings_cache_key = f"user_settings:{current_user_id}"
+        CacheService.delete_cached(profile_cache_key)
+        CacheService.delete_cached(settings_cache_key)
+        
         return success_response({
             'message': 'Password changed successfully'
         })
@@ -199,11 +248,20 @@ def change_password():
 @user_bp.route('/workspaces', methods=['GET'])
 @jwt_required()
 def get_user_workspaces():
-    """Get user's workspaces"""
+    """Get user's workspaces with caching"""
     try:
         current_user_id = get_jwt_identity()
         
-        # Get workspaces where user is a member
+        # Try to get from cache first
+        cache_key = f"user_workspaces:{current_user_id}"
+        cached_workspaces = CacheService.get_cached(cache_key)
+        
+        if cached_workspaces:
+            return success_response({
+                'workspaces': cached_workspaces
+            })
+        
+        # If not in cache, get from database
         workspaces = db.session.query(Workspace).join(WorkspaceMember).filter(
             WorkspaceMember.user_id == current_user_id,
             WorkspaceMember.is_active == True
@@ -220,6 +278,9 @@ def get_user_workspaces():
             workspace_info = workspace.to_dict()
             workspace_info['user_role'] = membership.role if membership else None
             workspace_data.append(workspace_info)
+        
+        # Cache workspaces for 10 minutes
+        CacheService.set_cached(cache_key, workspace_data, 600)
         
         return success_response({
             'workspaces': workspace_data

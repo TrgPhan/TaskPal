@@ -46,18 +46,29 @@ class Block(db.Model):
     # Version control
     version = db.Column(db.Integer, default=1, nullable=False)
     
-    # Relationships
-    page = db.relationship('Page', back_populates='blocks')
-    created_by_user = db.relationship('User', foreign_keys=[created_by], back_populates='blocks')
-    last_edited_by_user = db.relationship('User', foreign_keys=[last_edited_by])
+    # Relationships - optimized with lazy loading
+    page = db.relationship('Page', back_populates='blocks', lazy='select')
+    created_by_user = db.relationship('User', foreign_keys=[created_by], 
+                                    back_populates='blocks', lazy='select')
+    last_edited_by_user = db.relationship('User', foreign_keys=[last_edited_by], lazy='select')
     
     # Hierarchical relationships
-    parent = db.relationship('Block', remote_side=[id], back_populates='children')
+    parent = db.relationship('Block', remote_side=[id], back_populates='children', lazy='select')
     children = db.relationship('Block', back_populates='parent', cascade='all, delete-orphan',
-                             order_by='Block.order_index')
+                             order_by='Block.order_index', lazy='select')
     
     # Comments on blocks
-    comments = db.relationship('Comment', back_populates='block', cascade='all, delete-orphan')
+    comments = db.relationship('Comment', back_populates='block', cascade='all, delete-orphan',
+                              lazy='dynamic')
+    
+    # Add composite indexes for better query performance
+    __table_args__ = (
+        db.Index('idx_block_page_order', 'page_id', 'order_index'),
+        db.Index('idx_block_page_parent', 'page_id', 'parent_id'),
+        db.Index('idx_block_type', 'type'),
+        db.Index('idx_block_created_at', 'created_at'),
+        db.Index('idx_block_updated_at', 'updated_at'),
+    )
     
     def update_has_children(self):
         """Update has_children flag based on actual children"""
