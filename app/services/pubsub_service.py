@@ -72,6 +72,23 @@ class PubSubService:
         except Exception as e:
             current_app.logger.error(f"Failed to subscribe to channel '{channel}': {e}")
 
+    def subscribe_pattern(self, pattern: str, callback: Callable[[str, Any], None]):
+        """Subscribe to a channel pattern with a callback function"""
+        try:
+            if pattern not in self.subscribers:
+                self.subscribers[pattern] = []
+                self.pubsub_client.psubscribe(pattern)
+
+            self.subscribers[pattern].append(callback)
+            current_app.logger.info(f"Subscribed to pattern '{pattern}'")
+
+            # Start the listener thread if not already running
+            if not self.running:
+                self._start_listener()
+
+        except Exception as e:
+            current_app.logger.error(f"Failed to subscribe to pattern '{pattern}': {e}")
+
     def unsubscribe(self, channel: str, callback: Callable = None):
         """Unsubscribe from a channel"""
         try:
@@ -107,8 +124,12 @@ class PubSubService:
                 if not self.running:
                     break
 
-                if message['type'] == 'message':
+                if message['type'] in ['message', 'pmessage']:
                     channel = message['channel']
+                    if message['type'] == 'pmessage':
+                        # Pattern message - use the actual channel, not the pattern
+                        channel = message['channel']
+                    
                     data = message['data']
 
                     # Parse JSON message if possible
@@ -117,13 +138,14 @@ class PubSubService:
                     except (json.JSONDecodeError, TypeError):
                         parsed_data = data
 
-                    # Call all callbacks for this channel
-                    if channel in self.subscribers:
-                        for callback in self.subscribers[channel]:
-                            try:
-                                callback(channel, parsed_data)
-                            except Exception as e:
-                                current_app.logger.error(f"Error in PubSub callback for channel '{channel}': {e}")
+                    # Call all callbacks for this channel/pattern
+                    for pattern, callbacks in self.subscribers.items():
+                        if pattern == channel or (message['type'] == 'pmessage' and message['pattern'] == pattern):
+                            for callback in callbacks:
+                                try:
+                                    callback(channel, parsed_data)
+                                except Exception as e:
+                                    current_app.logger.error(f"Error in PubSub callback for channel '{channel}': {e}")
         except Exception as e:
             current_app.logger.error(f"PubSub listener error: {e}")
         finally:

@@ -1,9 +1,15 @@
 from flask import Flask, jsonify
+from flask_cors import CORS
+from flask_socketio import SocketIO
 import os
+
+# Global SocketIO instance
+socketio = SocketIO()
 
 def create_app(config_name=None):
     """Application factory pattern"""
     app = Flask(__name__)
+    CORS(app, supports_credentials=True)  # Enable CORS with credentials
     
     # Load configuration
     if config_name is None:
@@ -12,6 +18,9 @@ def create_app(config_name=None):
     from config import config
     app.config.from_object(config[config_name])
     config[config_name].init_app(app)
+    
+    # Initialize SocketIO
+    socketio.init_app(app, cors_allowed_origins="*", async_mode='threading')
     
     # Initialize all extensions
     from app.extensions import init_app as init_extensions
@@ -74,5 +83,12 @@ def create_app(config_name=None):
             'message': 'TaskPal API is running',
             'status': 'healthy'
         })
+
+    # Import WebSocket events after app creation
+    from app.websocket import websocket_events, init_websocket_bridge
     
-    return app
+    # Initialize WebSocket bridge with app context
+    with app.app_context():
+        init_websocket_bridge()
+    
+    return app, socketio
